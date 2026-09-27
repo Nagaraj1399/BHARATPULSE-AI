@@ -2,6 +2,32 @@ import { FunctionDeclaration, Type } from '@google/genai';
 
 export const agentToolDeclarations: FunctionDeclaration[] = [
   {
+    name: 'createIncident',
+    description: 'Creates a confirmed civic incident report in the BharatPulse municipal registry. Returns official incidentId.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        description: { type: Type.STRING, description: 'Description of the civic incident reported by the citizen' },
+        latitude: { type: Type.NUMBER, description: 'Citizen latitude coordinate (e.g. 12.9782 for Bengaluru)' },
+        longitude: { type: Type.NUMBER, description: 'Citizen longitude coordinate (e.g. 77.6415 for Bengaluru)' },
+        language: { type: Type.STRING, description: 'Citizen language code (e.g. en, hi, kn, ta, te, bn)' },
+        address: { type: Type.STRING, description: 'Street address or landmark' },
+      },
+      required: ['description'],
+    },
+  },
+  {
+    name: 'getIncidentStatus',
+    description: 'Retrieves the official real-time status, assigned response team, work order, and confirmed ETA for an incident.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        incidentId: { type: Type.STRING, description: 'The official incident ID (e.g. BP-2048)' },
+      },
+      required: ['incidentId'],
+    },
+  },
+  {
     name: 'classifyIncident',
     description: 'Classifies the civic problem type, severity level, risks, and required municipal departments.',
     parameters: {

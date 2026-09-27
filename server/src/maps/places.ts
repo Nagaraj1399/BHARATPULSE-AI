@@ -22,36 +22,51 @@ export async function searchNearbyCriticalPlaces(
   lng: number,
   radiusMeters = 2500
 ): Promise<CriticalFacility[]> {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
 
   if (apiKey) {
     try {
-      // If real Google Places API is configured
-      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radiusMeters}&type=school|hospital|transit_station&key=${apiKey}`;
-      const res = await fetch(url);
+      // Modern Places API (New) endpoint conforming to GMP guidelines
+      const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.primaryType,places.location,places.formattedAddress',
+        },
+        body: JSON.stringify({
+          includedTypes: ['school', 'hospital', 'transit_station'],
+          maxResultCount: 5,
+          locationRestriction: {
+            circle: {
+              center: { latitude: lat, longitude: lng },
+              radius: radiusMeters,
+            },
+          },
+        }),
+      });
+
       if (res.ok) {
         const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          return data.results.slice(0, 5).map((place: any, index: number) => {
-            const dist = getDistanceMeters(
-              lat,
-              lng,
-              place.geometry.location.lat,
-              place.geometry.location.lng
-            );
+        if (data.places && data.places.length > 0) {
+          return data.places.map((place: any, index: number) => {
+            const pLat = place.location?.latitude || lat;
+            const pLng = place.location?.longitude || lng;
+            const dist = getDistanceMeters(lat, lng, pLat, pLng);
+            const pType = place.primaryType || '';
             return {
-              id: place.place_id || `PLACE-${index}`,
-              name: place.name,
-              type: place.types?.includes('school')
+              id: place.id || `PLACE-${index}`,
+              name: place.displayName?.text || 'Civic Infrastructure Facility',
+              type: pType.includes('school')
                 ? 'school'
-                : place.types?.includes('hospital')
+                : pType.includes('hospital')
                 ? 'hospital'
-                : place.types?.includes('transit_station')
+                : pType.includes('transit') || pType.includes('metro')
                 ? 'metro_station'
                 : 'public_facility',
-              latitude: place.geometry.location.lat,
-              longitude: place.geometry.location.lng,
-              vicinity: place.vicinity || place.name,
+              latitude: pLat,
+              longitude: pLng,
+              vicinity: place.formattedAddress || 'Bengaluru Urban Sector',
               distanceMeters: dist,
               riskRelevance: `Located ${dist}m from incident site. Vulnerable to disruptions.`,
             };

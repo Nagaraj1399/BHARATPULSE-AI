@@ -49,17 +49,17 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               CITY RESILIENCE COMMAND CENTER
             </h1>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 text-[10px] font-bold">
               AUTONOMOUS OPS
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5">
             Real-time geospatial coordination, automated work orders & verified civic incident resolution.
           </p>
         </div>
@@ -67,10 +67,10 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
         <button
           type="button"
           onClick={onRefresh}
-          className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
           title="Refresh Data"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+          <RefreshCw className="w-3.5 h-3.5 text-indigo-600" />
           <span>Sync State</span>
         </button>
       </div>
@@ -93,20 +93,20 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
 
           {/* Quick Active Selection Preview Banner */}
           {selectedIncident && (
-            <div className="p-4 rounded-xl bg-slate-900 border border-cyan-500/40 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-xl bg-white border-2 border-indigo-200 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-amber-400">
+                  <span className="font-mono text-xs font-bold text-indigo-700">
                     {selectedIncident.id}
                   </span>
-                  <span className="text-xs font-bold text-white uppercase">
+                  <span className="text-xs font-bold text-slate-900 uppercase">
                     {selectedIncident.type.replace('_', ' ')}
                   </span>
-                  <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-mono text-[10px]">
+                  <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 font-mono text-[10px] border border-indigo-200">
                     {selectedIncident.status}
                   </span>
                 </div>
-                <p className="text-xs text-slate-300 mt-1 line-clamp-1">
+                <p className="text-xs text-slate-700 mt-1 line-clamp-1">
                   {selectedIncident.description}
                 </p>
               </div>
@@ -114,7 +114,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
               <button
                 type="button"
                 onClick={() => onViewDetails(selectedIncident.id)}
-                className="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 whitespace-nowrap self-start sm:self-auto"
+                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm whitespace-nowrap self-start sm:self-auto"
               >
                 <span>View Full Audit Details</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -130,10 +130,10 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
       </div>
 
       {/* Bottom Area: Incident Queue & Filters */}
-      <div className="space-y-4 pt-4 border-t border-slate-800">
+      <div className="space-y-4 pt-4 border-t border-slate-200">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
               Live Municipal Incident Queue ({filteredIncidents.length})
             </h3>
             <span className="text-xs text-slate-500 font-mono">
@@ -142,7 +142,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
           </div>
 
           {/* Severity Filter Tabs */}
-          <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
             {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((sev) => (
               <button
                 key={sev}
@@ -150,8 +150,8 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
                 onClick={() => setFilterSeverity(sev)}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                   filterSeverity === sev
-                    ? 'bg-amber-500 text-slate-950 font-bold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {sev}

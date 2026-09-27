@@ -3,13 +3,13 @@ import { incidentsDb } from '../firebase/incidents';
 import { teamsDb } from '../firebase/teams';
 import { runAgentOrchestration } from '../agent/orchestrator';
 import { executeTool } from '../agent/orchestrator';
-import { generateVoiceReply } from './agent';
+import { generateVoiceReply } from './voiceReplies';
 import { transcribeAudio } from './transcribe';
 
-export const voiceWebhookRouter = Router();
+export const voiceRouter = Router();
 
 // POST /api/voice/transcribe - Multimodal audio transcription via Gemini
-voiceWebhookRouter.post('/transcribe', async (req: Request, res: Response) => {
+voiceRouter.post('/transcribe', async (req: Request, res: Response) => {
   try {
     const { audio, mimeType, language } = req.body;
     if (!audio) {
@@ -27,8 +27,8 @@ voiceWebhookRouter.post('/transcribe', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/voice/create-incident
-voiceWebhookRouter.post('/create-incident', async (req: Request, res: Response) => {
+// POST /api/voice/create-incident - Voice-initiated incident report
+voiceRouter.post('/create-incident', async (req: Request, res: Response) => {
   try {
     const { description, latitude, longitude, language, imageUrl, address } = req.body;
 
@@ -111,7 +111,7 @@ voiceWebhookRouter.post('/create-incident', async (req: Request, res: Response) 
 });
 
 // POST /api/voice/get-incident-status
-voiceWebhookRouter.post('/get-incident-status', async (req: Request, res: Response) => {
+voiceRouter.post('/get-incident-status', async (req: Request, res: Response) => {
   try {
     const { incidentId } = req.body;
     if (!incidentId) {
@@ -141,7 +141,7 @@ voiceWebhookRouter.post('/get-incident-status', async (req: Request, res: Respon
 });
 
 // POST /api/voice/find-response-team
-voiceWebhookRouter.post('/find-response-team', async (req: Request, res: Response) => {
+voiceRouter.post('/find-response-team', async (req: Request, res: Response) => {
   try {
     const { incidentType, latitude, longitude, severity } = req.body;
     const result = await executeTool('findAvailableResponseTeams', {
@@ -158,7 +158,7 @@ voiceWebhookRouter.post('/find-response-team', async (req: Request, res: Respons
 });
 
 // POST /api/voice/get-response-eta
-voiceWebhookRouter.post('/get-response-eta', async (req: Request, res: Response) => {
+voiceRouter.post('/get-response-eta', async (req: Request, res: Response) => {
   try {
     const { incidentId } = req.body;
     const incident = incidentsDb.getById(incidentId);
@@ -178,7 +178,7 @@ voiceWebhookRouter.post('/get-response-eta', async (req: Request, res: Response)
 });
 
 // POST /api/voice/escalate-incident
-voiceWebhookRouter.post('/escalate-incident', async (req: Request, res: Response) => {
+voiceRouter.post('/escalate-incident', async (req: Request, res: Response) => {
   try {
     const { incidentId, reason, targetTier } = req.body;
     const result = await executeTool('escalateIncident', {

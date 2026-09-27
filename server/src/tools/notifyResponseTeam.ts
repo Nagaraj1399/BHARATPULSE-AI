@@ -21,8 +21,16 @@ export interface NotifyResponseTeamOutput {
 export async function executeNotifyResponseTeam(
   input: NotifyResponseTeamInput
 ): Promise<NotifyResponseTeamOutput> {
+  if (!input.incidentId || !input.teamId || !input.message) {
+    throw new Error('incidentId, teamId, and alert message are required to dispatch team notification');
+  }
+
   const team = teamsDb.getById(input.teamId);
-  const recipient = team ? `${team.name} Field Commander` : 'Assigned Emergency Squad';
+  if (!team) {
+    throw new Error(`Cannot notify team: Response team "${input.teamId}" not registered`);
+  }
+
+  const recipient = `${team.name} Field Commander`;
   const channel = input.channel || 'RADIO_DISPATCH';
 
   const notif = actionsDb.logNotification({

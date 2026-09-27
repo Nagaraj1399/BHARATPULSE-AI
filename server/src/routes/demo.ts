@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { civicStore } from '../firebase/admin';
 import { incidentsDb } from '../firebase/incidents';
 import { executeTool } from '../agent/orchestrator';
-import { generateVoiceReply } from '../elevenlabs/agent';
+import { generateVoiceReply } from '../voice/voiceReplies';
 
 export const demoRouter = Router();
 

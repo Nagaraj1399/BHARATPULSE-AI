@@ -32,17 +32,17 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     const isDisp = availability === 'DISPATCHED' || availability === 'ON_SCENE';
     return (
       <span
-        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
           isAvail
-            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
             : isDisp
-            ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
-            : 'bg-slate-700/30 text-slate-400 border-slate-700'
+            ? 'bg-cyan-50 text-cyan-800 border-cyan-200'
+            : 'bg-slate-100 text-slate-700 border-slate-200'
         } ${className}`}
       >
         <span
           className={`w-1.5 h-1.5 rounded-full ${
-            isAvail ? 'bg-emerald-400 animate-pulse' : isDisp ? 'bg-cyan-400' : 'bg-slate-500'
+            isAvail ? 'bg-emerald-500 animate-pulse' : isDisp ? 'bg-cyan-500' : 'bg-slate-400'
           }`}
         />
         {availability.replace('_', ' ')}
@@ -61,30 +61,30 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       <span
         className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide border ${
           isResolved
-            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
             : isEscalated
-            ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+            ? 'bg-rose-50 text-rose-800 border-rose-300 animate-pulse font-bold'
             : isVerifying
-            ? 'bg-purple-500/15 text-purple-300 border-purple-500/40'
+            ? 'bg-purple-50 text-purple-800 border-purple-200'
             : isDispatched
-            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'
+            ? 'bg-cyan-50 text-cyan-800 border-cyan-200'
             : isAnalyzing
-            ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 animate-pulse'
-            : 'bg-slate-800 text-slate-300 border-slate-700'
+            ? 'bg-amber-50 text-amber-800 border-amber-200 animate-pulse'
+            : 'bg-slate-100 text-slate-700 border-slate-200'
         } ${className}`}
       >
         <span
           className={`w-1.5 h-1.5 rounded-full ${
             isResolved
-              ? 'bg-emerald-400'
+              ? 'bg-emerald-500'
               : isEscalated
               ? 'bg-rose-500'
               : isVerifying
-              ? 'bg-purple-400'
+              ? 'bg-purple-500'
               : isDispatched
-              ? 'bg-cyan-400'
+              ? 'bg-cyan-500'
               : isAnalyzing
-              ? 'bg-amber-400'
+              ? 'bg-amber-500'
               : 'bg-slate-400'
           }`}
         />

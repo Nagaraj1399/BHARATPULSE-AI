@@ -24,8 +24,21 @@ export interface CreateWorkOrderOutput {
 export async function executeCreateWorkOrder(
   input: CreateWorkOrderInput
 ): Promise<CreateWorkOrderOutput> {
+  if (!input.incidentId || !input.teamId) {
+    throw new Error('incidentId and teamId are required to issue an official municipal work order');
+  }
+
   const team = teamsDb.getById(input.teamId);
-  const teamName = team ? team.name : 'Municipal Emergency Crew';
+  if (!team) {
+    throw new Error(`Target response team "${input.teamId}" does not exist in civic registry`);
+  }
+
+  const incident = incidentsDb.getById(input.incidentId);
+  if (!incident) {
+    throw new Error(`Target incident "${input.incidentId}" does not exist`);
+  }
+
+  const teamName = team.name;
   const workOrderId = `WO-${input.teamId.replace('TEAM-', '')}-${Date.now().toString().slice(-4)}`;
 
   const order: WorkOrder = {

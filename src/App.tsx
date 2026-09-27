@@ -12,13 +12,78 @@ import { useIncidents } from './hooks/useIncidents';
 import { useAgent } from './hooks/useAgent';
 import { api } from './lib/api';
 import { Incident, ResponseTeam, CriticalFacility, RiskZone } from '../shared/types';
-import { speakConfirmedText, stopSpeaking } from './lib/elevenlabs';
+import { speakConfirmedText, stopSpeaking } from './lib/voicePlayback';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'landing' | 'citizen' | 'dashboard' | 'risk'>('landing');
   const [detailedIncidentId, setDetailedIncidentId] = useState<string | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [judgeMode, setJudgeMode] = useState<boolean>(false);
+
+  // Sync state from current URL
+  const syncFromUrl = useCallback(() => {
+    const pathname = window.location.pathname;
+    if (pathname.startsWith('/incident/')) {
+      const id = pathname.replace('/incident/', '').trim();
+      if (id) {
+        setDetailedIncidentId(id);
+        return;
+      }
+    }
+    setDetailedIncidentId(null);
+    if (pathname === '/dashboard') {
+      setActiveTab('dashboard');
+    } else if (pathname === '/risk' || pathname === '/risks') {
+      setActiveTab('risk');
+    } else if (pathname === '/citizen' || pathname === '/report') {
+      setActiveTab('citizen');
+    } else {
+      setActiveTab('landing');
+    }
+  }, []);
+
+  // Update browser URL history when tab or detailed incident changes
+  const updateUrl = useCallback((tab: 'landing' | 'citizen' | 'dashboard' | 'risk', incId: string | null) => {
+    let targetPath = '/';
+    if (incId) {
+      targetPath = `/incident/${incId}`;
+    } else if (tab === 'dashboard') {
+      targetPath = '/dashboard';
+    } else if (tab === 'risk') {
+      targetPath = '/risk';
+    } else if (tab === 'citizen') {
+      targetPath = '/citizen';
+    }
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({ tab, incId }, '', targetPath);
+    }
+  }, []);
+
+  const navigateToTab = useCallback((tab: 'landing' | 'citizen' | 'dashboard' | 'risk') => {
+    setDetailedIncidentId(null);
+    setActiveTab(tab);
+    updateUrl(tab, null);
+  }, [updateUrl]);
+
+  const navigateToIncident = useCallback((id: string) => {
+    setDetailedIncidentId(id);
+    updateUrl(activeTab, id);
+  }, [activeTab, updateUrl]);
+
+  const navigateBackFromIncident = useCallback(() => {
+    setDetailedIncidentId(null);
+    setActiveTab('dashboard');
+    updateUrl('dashboard', null);
+  }, [updateUrl]);
+
+  useEffect(() => {
+    syncFromUrl();
+    const handlePopState = () => {
+      syncFromUrl();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [syncFromUrl]);
 
   // Data fetching hooks
   const { incidents, refresh: refreshIncidents } = useIncidents(2500);
@@ -171,14 +236,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-amber-200 selection:text-slate-900">
       {/* Header */}
       <Header
         activeTab={detailedIncidentId ? 'dashboard' : activeTab}
-        setActiveTab={(tab) => {
-          setDetailedIncidentId(null);
-          setActiveTab(tab);
-        }}
+        setActiveTab={navigateToTab}
         onRunDemo={handleRunDemo}
         isDemoRunning={isDemoRunning}
         judgeMode={judgeMode}
@@ -189,10 +251,7 @@ export default function App() {
         {/* Sidebar */}
         <Sidebar
           activeTab={detailedIncidentId ? 'dashboard' : activeTab}
-          setActiveTab={(tab) => {
-            setDetailedIncidentId(null);
-            setActiveTab(tab);
-          }}
+          setActiveTab={navigateToTab}
         />
 
         {/* Main Content View */}
@@ -215,22 +274,22 @@ export default function App() {
           {detailedIncidentId ? (
             <IncidentDetailPage
               incidentId={detailedIncidentId}
-              onBack={() => setDetailedIncidentId(null)}
+              onBack={navigateBackFromIncident}
               teams={teams}
             />
           ) : activeTab === 'landing' ? (
             <LandingHero
-              onOpenVoice={() => setActiveTab('citizen')}
-              onOpenDashboard={() => setActiveTab('dashboard')}
+              onOpenVoice={() => navigateToTab('citizen')}
+              onOpenDashboard={() => navigateToTab('dashboard')}
               onRunDemo={handleRunDemo}
               isDemoRunning={isDemoRunning}
             />
           ) : activeTab === 'citizen' ? (
             <CitizenPage
               onIncidentCreated={(id) => {
-                setDetailedIncidentId(id);
+                navigateToIncident(id);
               }}
-              onOpenDashboard={() => setActiveTab('dashboard')}
+              onOpenDashboard={() => navigateToTab('dashboard')}
             />
           ) : activeTab === 'dashboard' ? (
             <DashboardPage
@@ -241,7 +300,7 @@ export default function App() {
               actions={actions}
               selectedIncident={selectedIncident}
               onSelectIncident={handleSelectIncident}
-              onViewDetails={handleViewDetails}
+              onViewDetails={navigateToIncident}
               onRefresh={async () => {
                 await refreshIncidents();
                 await refreshActions();

@@ -87,6 +87,48 @@ export const api = {
     return res.json();
   },
 
+  // Gemini Live API Endpoints
+  async getLiveToken(): Promise<{
+    success: boolean;
+    token: string;
+    model: string;
+    systemInstruction: string;
+    tools: any[];
+  }> {
+    const res = await fetch(`${API_BASE}/live/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to acquire Gemini Live ephemeral token');
+    }
+    return res.json();
+  },
+
+  async liveExecuteTool(
+    toolName: string,
+    args: Record<string, any>,
+    incidentId?: string
+  ): Promise<{ success: boolean; result: any }> {
+    const res = await fetch(`${API_BASE}/live/execute-tool`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toolName, args, incidentId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Live tool execution failed for ${toolName}`);
+    }
+    return res.json();
+  },
+
+  async getLiveTools(): Promise<{ tools: any[] }> {
+    const res = await fetch(`${API_BASE}/live/tools`);
+    if (!res.ok) throw new Error('Failed to fetch Live tool declarations');
+    return res.json();
+  },
+
   // Voice Webhook Calls
   async voiceTranscribe(data: {
     audio: string;

@@ -27,25 +27,25 @@ export const SEVERITY_CONFIG: Record<IncidentSeverity, { label: string; color: s
   LOW: {
     label: 'Low Priority',
     color: '#10B981',
-    badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    pingClass: 'bg-emerald-400',
+    badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    pingClass: 'bg-emerald-500',
   },
   MEDIUM: {
     label: 'Medium Priority',
     color: '#F59E0B',
-    badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-    pingClass: 'bg-amber-400',
+    badgeClass: 'bg-amber-50 text-amber-900 border-amber-200',
+    pingClass: 'bg-amber-500',
   },
   HIGH: {
     label: 'High Priority',
     color: '#F97316',
-    badgeClass: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-    pingClass: 'bg-orange-400',
+    badgeClass: 'bg-orange-50 text-orange-900 border-orange-200',
+    pingClass: 'bg-orange-500',
   },
   CRITICAL: {
     label: 'Critical Emergency',
     color: '#EF4444',
-    badgeClass: 'bg-rose-500/10 text-rose-400 border-rose-500/30 animate-pulse',
+    badgeClass: 'bg-rose-50 text-rose-900 border-rose-300 animate-pulse font-bold',
     pingClass: 'bg-rose-500',
   },
 };

@@ -7,7 +7,20 @@ export async function calculateResponseRoute(
   destLat: number,
   destLng: number
 ): Promise<RouteResult> {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (
+    typeof originLat !== 'number' ||
+    typeof originLng !== 'number' ||
+    typeof destLat !== 'number' ||
+    typeof destLng !== 'number' ||
+    isNaN(originLat) ||
+    isNaN(originLng) ||
+    isNaN(destLat) ||
+    isNaN(destLng)
+  ) {
+    throw new Error('Invalid geographic coordinates provided for route calculation');
+  }
+
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
 
   if (apiKey) {
     try {

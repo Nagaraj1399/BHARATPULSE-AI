@@ -1,6 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 enum OperationType {
   CREATE = 'create',
@@ -33,31 +34,22 @@ let db: Firestore | null = null;
 let auth: Auth | null = null;
 let isConfigured = false;
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
-
-if (firebaseConfig.apiKey && firebaseConfig.projectId) {
-  try {
+try {
+  if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-    db = getFirestore(app);
+    db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
     auth = getAuth(app);
     isConfigured = true;
 
     // Test connection as instructed by Firebase skill
     getDocFromServer(doc(db, 'test', 'connection')).catch((err) => {
       if (err instanceof Error && err.message.includes('the client is offline')) {
-        console.warn('Firebase client is offline, using civic store fallback.');
+        console.warn('Firebase client is offline. Please check your Firebase configuration.');
       }
     });
-  } catch (err) {
-    console.warn('Firebase initialization notice: Running with in-memory civic backend store.');
   }
+} catch (err) {
+  console.warn('Firebase initialization notice: Running with in-memory civic backend store.');
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
@@ -77,8 +69,26 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path,
   };
-  console.error('Firestore Error:', JSON.stringify(errInfo));
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
-export { app, db, auth, isConfigured, OperationType };
+export async function loginWithGoogle(): Promise<User | null> {
+  if (!auth) return null;
+  const provider = new GoogleAuthProvider();
+  try {
+    const cred = await signInWithPopup(auth, provider);
+    return cred.user;
+  } catch (err) {
+    console.error('Sign-in failed:', err);
+    throw err;
+  }
+}
+
+export async function logoutUser(): Promise<void> {
+  if (!auth) return;
+  await signOut(auth);
+}
+
+export { app, db, auth, isConfigured, OperationType, onAuthStateChanged };
+

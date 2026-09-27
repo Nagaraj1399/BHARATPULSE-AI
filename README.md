@@ -135,13 +135,8 @@ Citizen voice reports are transcribed in their native language and normalized in
 Create `.env` based on `.env.example`:
 
 ```bash
-# Gemini API Key (Server-Side)
+# Gemini API Key (Server-Side - powers Gemini reasoning & Gemini Live native voice)
 GEMINI_API_KEY=your_gemini_api_key
-
-# ElevenLabs Voice Agent (Server-Side & Client)
-ELEVENLABS_API_KEY=your_elevenlabs_api_key
-ELEVENLABS_AGENT_ID=your_elevenlabs_agent_id
-VITE_ELEVENLABS_AGENT_ID=your_elevenlabs_agent_id
 
 # Google Maps Platform (Places, Routes, Maps)
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key

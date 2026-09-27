@@ -20,6 +20,10 @@ import { Incident } from '../../../shared/types';
 // Map human-facing summary labels (No private chain-of-thought!)
 export function getCleanToolSummary(toolName: string, _args: any, result: any): string {
   switch (toolName) {
+    case 'createIncident':
+      return `Created civic incident ${result?.incidentId || 'BP-NEW'} (${result?.type || 'INCIDENT'} - ${result?.severity || 'MEDIUM'})`;
+    case 'getIncidentStatus':
+      return `Queried status for incident ${result?.incidentId || 'BP-ID'}: ${result?.status || 'RECEIVED'}`;
     case 'classifyIncident':
       return `Classified incident as ${result?.incidentType || 'CIVIC_HAZARD'} (${result?.severity || 'MEDIUM'} priority)`;
     case 'findNearbyCriticalPlaces':
@@ -62,6 +66,81 @@ export async function executeTool(toolName: string, args: Record<string, any>, i
 
   try {
     switch (toolName) {
+      case 'createIncident': {
+        const incId = args.incidentId || `BP-${Math.floor(2000 + Math.random() * 900)}`;
+        const lat = typeof args.latitude === 'number' ? args.latitude : 12.9782;
+        const lng = typeof args.longitude === 'number' ? args.longitude : 77.6415;
+        const classification = await executeClassifyIncident({
+          description: args.description,
+          latitude: lat,
+          longitude: lng,
+          language: args.language,
+        });
+
+        // Search available response teams for immediate assignment
+        const teamMatch = await executeFindAvailableResponseTeams({
+          incidentType: classification.incidentType,
+          latitude: lat,
+          longitude: lng,
+          severity: classification.severity,
+        });
+
+        const selectedTeam = teamMatch.recommendedTeam;
+        const teamName = selectedTeam?.team?.name || 'BWSSB Rapid Water Unit 01';
+        const teamId = selectedTeam?.team?.id || 'TEAM-BWSSB-01';
+        const etaMinutes = selectedTeam?.estimatedArrivalMinutes || 8;
+
+        const incident = incidentsDb.create({
+          id: incId,
+          description: args.description,
+          type: classification.incidentType,
+          severity: classification.severity,
+          confidence: classification.confidence,
+          latitude: lat,
+          longitude: lng,
+          address: args.address || `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E, Bengaluru`,
+          language: args.language || 'en',
+          status: 'DISPATCHED',
+          assignedTeamId: teamId,
+          assignedTeamName: teamName,
+          etaMinutes,
+          aiSummary: classification.summary,
+          risks: classification.risks,
+          requiredDepartments: classification.requiredDepartments,
+        });
+
+        result = {
+          incidentId: incident.id,
+          status: incident.status,
+          type: incident.type,
+          severity: incident.severity,
+          assignedTeamName: incident.assignedTeamName,
+          confirmedEtaMinutes: incident.etaMinutes,
+          address: incident.address,
+          aiSummary: incident.aiSummary,
+        };
+        break;
+      }
+      case 'getIncidentStatus': {
+        const inc = incidentsDb.getById(args.incidentId);
+        if (!inc) {
+          result = { error: `Incident ${args.incidentId} not found in municipal registry.` };
+        } else {
+          result = {
+            incidentId: inc.id,
+            status: inc.status,
+            type: inc.type,
+            severity: inc.severity,
+            assignedTeam: inc.assignedTeamName || 'Unassigned',
+            etaMinutes: inc.etaMinutes || null,
+            workOrderId: inc.workOrderId || null,
+            resolvedAt: inc.resolvedAt || null,
+            address: inc.address,
+            aiSummary: inc.aiSummary || null,
+          };
+        }
+        break;
+      }
       case 'classifyIncident':
         result = await executeClassifyIncident(args as any);
         break;
@@ -293,15 +372,38 @@ export async function runDeterministicStandardWorkflow(incidentId: string): Prom
   }, incidentId);
 
   const selectedTeam = teamSearch.recommendedTeam;
-  let etaMinutes = 8;
-  let teamId = 'TEAM-BWSSB-01';
-  let teamName = 'BWSSB Rapid Water Unit 01';
 
-  if (selectedTeam) {
-    teamId = selectedTeam.team.id;
-    teamName = selectedTeam.team.name;
-    etaMinutes = selectedTeam.estimatedArrivalMinutes || 8;
+  if (!selectedTeam) {
+    // Anti-Hallucination Safeguard: Do NOT invent a team if none are available!
+    await executeTool(
+      'escalateIncident',
+      {
+        incidentId,
+        reason: 'No response team with required capabilities currently available in sector.',
+        targetTier: 'DISASTER_MANAGEMENT_AUTHORITY',
+        immediateActionsRequired: ['Sector supervisor alert', 'Inter-agency mutual aid request'],
+      },
+      incidentId
+    );
+
+    incidentsDb.updateStatus(incidentId, 'ESCALATED', {
+      assignedTeamId: null,
+      assignedTeamName: undefined,
+      etaMinutes: undefined,
+    });
+
+    const updated = incidentsDb.getById(incidentId);
+    return {
+      incident: updated || null,
+      stepsCompleted: 3,
+      confirmedEtaMinutes: undefined,
+      assignedTeamName: undefined,
+    };
   }
+
+  const teamId = selectedTeam.team.id;
+  const teamName = selectedTeam.team.name;
+  let etaMinutes = selectedTeam.estimatedArrivalMinutes || 8;
 
   // Step 4: Calculate Route
   const route = await executeTool('calculateResponseRoute', {

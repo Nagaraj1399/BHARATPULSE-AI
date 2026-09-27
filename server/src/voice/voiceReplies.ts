@@ -1,16 +1,8 @@
-import { ELEVENLABS_VOICE_SYSTEM_PROMPT } from '../agent/prompts';
+/**
+ * BharatPulse Confirmed Voice Responses for Indian Citizens
+ * Supports English, Hindi, Kannada, Tamil, Telugu, and Bengali
+ */
 
-export const elevenLabsConfig = {
-  agentId: process.env.ELEVENLABS_AGENT_ID || process.env.VITE_ELEVENLABS_AGENT_ID || 'bharatpulse-agent-bengaluru',
-  systemPrompt: ELEVENLABS_VOICE_SYSTEM_PROMPT,
-  supportedLanguages: ['en', 'hi', 'kn', 'ta', 'te', 'bn'],
-  voiceSettings: {
-    stability: 0.75,
-    similarity_boost: 0.85,
-  },
-};
-
-// Generates confirmed natural voice responses for citizens in multiple Indian languages
 export function generateVoiceReply(
   language: string,
   incidentId: string,

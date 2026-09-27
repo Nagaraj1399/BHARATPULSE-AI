@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { VoiceOrb } from './VoiceOrb';
 import { LanguageSelector } from './LanguageSelector';
 import { useVoiceAgent } from '../hooks/useVoiceAgent';
-import { Camera, Send, Sparkles, Volume2, ArrowRight, AlertTriangle, Play, RefreshCw } from 'lucide-react';
+import { Camera, Send, Sparkles, Volume2, ArrowRight, AlertTriangle, Play, RefreshCw, Mic, MessageSquare, CheckCircle2 } from 'lucide-react';
 import { SupportedLanguage } from '../../shared/types';
+import { AIAvatar } from './AIAvatar';
+import { soundFx } from '../lib/soundFx';
 
 interface VoiceAgentProps {
   onIncidentCreated?: (incidentId: string) => void;
@@ -22,6 +24,7 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
     selectedLanguage,
     setSelectedLanguage,
     incidentId,
+    conversation,
     audioLevel,
     errorMessage,
     recordingSeconds,
@@ -31,6 +34,15 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
     resetVoice,
   } = useVoiceAgent();
 
+  // Notify parent dashboard if an incident is confirmed
+  React.useEffect(() => {
+    if (incidentId) {
+      onIncidentCreated?.(incidentId);
+      soundFx.playVerificationSuccess();
+    }
+  }, [incidentId, onIncidentCreated]);
+
+  const [showTypeInput, setShowTypeInput] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [typedMessage, setTypedMessage] = useState('');
 
@@ -52,7 +64,7 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
       lang: 'kn' as SupportedLanguage,
     },
     {
-      title: 'Sparking Transformer on Bus Stop',
+      title: 'Sparking Transformer near Bus Station',
       text: 'A high voltage transformer is sparking and dripping oil near the bus station.',
       lang: 'en' as SupportedLanguage,
     },
@@ -60,8 +72,10 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
 
   const handleOrbClick = () => {
     if (status === 'idle' || status === 'error') {
+      soundFx.playSignalReceived();
       startListening();
     } else if (status === 'listening') {
+      soundFx.playActionConfirmed();
       stopListeningAndProcess(transcript, uploadedImage || undefined);
     } else if (status === 'complete') {
       resetVoice();
@@ -73,6 +87,7 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
     if (!typedMessage.trim() && !transcript.trim()) return;
     const textToSubmit = typedMessage.trim() || transcript.trim();
     setTypedMessage('');
+    soundFx.playActionConfirmed();
     stopListeningAndProcess(textToSubmit, uploadedImage || undefined);
   };
 
@@ -88,27 +103,23 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-6 px-4 sm:px-6">
-      <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 sm:p-10 shadow-2xl relative overflow-hidden backdrop-blur-xl">
-        {/* Decorative Grid & Glow */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="max-w-2xl mx-auto py-6 px-4 select-none">
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 shadow-xl relative overflow-hidden text-center">
+        {/* Ambient Top Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Top Controls: Language & Title */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-lg text-white">BHARATPULSE AI</span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-bold">
-                VOICE LAYER
+        {/* Top Controls: SETU Identity & Language Selector */}
+        <div className="flex items-center justify-between pb-6 border-b border-slate-200">
+          <div className="flex items-center gap-2.5">
+            <AIAvatar personaId="setu" size="sm" state={status === 'listening' ? 'listening' : 'idle'} />
+            <div className="text-left">
+              <span className="font-bold text-xs text-slate-900 tracking-wide block">
+                SETU · CITIZEN AI
+              </span>
+              <span className="text-[10px] text-emerald-600 font-mono font-semibold">
+                Multilingual Voice Bridge · 2030
               </span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-100 mt-1">
-              "How can we help your city?"
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Speak or type in your native language. Autonomous civic agent coordinates response.
-            </p>
           </div>
 
           <LanguageSelector
@@ -117,8 +128,18 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
           />
         </div>
 
+        {/* Main Minimalist Question Heading */}
+        <div className="pt-8 pb-4">
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            WHAT'S HAPPENING?
+          </h2>
+          <p className="text-xs text-slate-600 mt-1 max-w-md mx-auto">
+            Speak naturally in your mother tongue. SETU understands and activates municipal response.
+          </p>
+        </div>
+
         {/* Center Animated Voice Orb */}
-        <div className="py-8 sm:py-12 flex flex-col items-center justify-center">
+        <div className="py-6 flex flex-col items-center justify-center">
           <VoiceOrb
             status={status}
             audioLevel={audioLevel}
@@ -127,13 +148,16 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
             size="lg"
           />
 
-          {/* Quick Action under Orb when Listening */}
-          {status === 'listening' && (
-            <div className="mt-4 flex items-center gap-3">
+          {/* Quick Action under Orb */}
+          {status === 'listening' ? (
+            <div className="mt-5 flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => stopListeningAndProcess(transcript, uploadedImage || undefined)}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/25 flex items-center gap-1.5 transition-all"
+                onClick={() => {
+                  soundFx.playActionConfirmed();
+                  stopListeningAndProcess(transcript, uploadedImage || undefined);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/25 flex items-center gap-1.5 transition-all"
               >
                 <span>Finished Speaking — Send Report</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -141,175 +165,222 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
               <button
                 type="button"
                 onClick={resetVoice}
-                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all"
+                className="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all border border-slate-200"
               >
                 Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleOrbClick}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-md shadow-indigo-600/20"
+              >
+                <Mic className="w-4 h-4" />
+                <span>TALK TO SETU</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTypeInput(!showTypeInput)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 transition-colors"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+                <span>{showTypeInput ? 'Hide Typing' : 'TYPE INSTEAD'}</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* Error / Fallback Notification Banner */}
+        {/* Error Notification */}
         {errorMessage && (
-          <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-xs text-rose-200 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{errorMessage}</span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={startListening}
-                className="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-100 font-bold flex items-center gap-1"
-              >
-                <RefreshCw className="w-3 h-3" />
-                <span>Retry Mic</span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  simulateVoiceInput(
-                    'There is a major water leak outside a school and the road is flooding.',
-                    selectedLanguage,
-                    uploadedImage || undefined
-                  )
-                }
-                className="px-2.5 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold flex items-center gap-1"
-              >
-                <Play className="w-3 h-3" />
-                <span>Demo Voice Input</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={startListening}
+              className="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 border border-rose-300 text-rose-900 font-bold shrink-0"
+            >
+              Retry Mic
+            </button>
           </div>
         )}
 
-        {/* Live Transcript & Processing Status Box */}
-        {(transcript || status === 'listening' || status === 'transcribing' || status === 'thinking' || status === 'acting') && (
-          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-sm mb-6 transition-all">
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono mb-1.5">
-              <span className="flex items-center gap-1.5 text-amber-400">
-                <Sparkles className="w-3.5 h-3.5" />
-                Live Citizen Input
+        {/* Live Conversation Transcript Log */}
+        {conversation.length > 0 && (
+          <div className="space-y-3 mb-6 max-h-72 overflow-y-auto pr-1 text-left">
+            {conversation.map((msg) => (
+              <div
+                key={msg.id}
+                className={`p-4 rounded-2xl border transition-all ${
+                  msg.sender === 'CITIZEN'
+                    ? 'bg-amber-50/80 border-amber-200 ml-2 sm:ml-6 text-amber-950'
+                    : 'bg-indigo-50/80 border-indigo-200 mr-2 sm:mr-6 shadow-sm text-slate-900'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-mono font-bold mb-1.5">
+                  <span
+                    className={`flex items-center gap-1.5 ${
+                      msg.sender === 'CITIZEN' ? 'text-amber-800' : 'text-indigo-700'
+                    }`}
+                  >
+                    {msg.sender === 'CITIZEN' ? <Mic className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                    {msg.sender === 'CITIZEN' ? 'CITIZEN' : 'BHARATPULSE'}
+                  </span>
+                  <span className="text-slate-400 text-[10px] font-normal">{msg.timestamp}</span>
+                </div>
+                <p className="text-slate-800 text-sm font-medium leading-relaxed whitespace-pre-wrap">
+                  "{msg.text}"
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Live Partial Input Box when Active */}
+        {(status === 'listening' || status === 'thinking' || status === 'coordinating') && (
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm mb-6 text-left">
+            <div className="flex items-center justify-between text-xs text-slate-500 font-mono mb-1.5">
+              <span className="flex items-center gap-1.5 text-amber-600 font-bold">
+                <Sparkles className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                Live Sensory Input
               </span>
-              <span className="uppercase text-cyan-400 font-bold">{status}</span>
+              <span className="uppercase text-indigo-700 font-bold">{status}</span>
             </div>
-            <p className="text-slate-100 font-medium leading-relaxed min-h-[1.5rem]">
+            <p className="text-slate-900 font-medium leading-relaxed min-h-[1.5rem]">
               {transcript ||
                 (status === 'listening'
                   ? 'Listening to speech... Speak into your microphone.'
-                  : status === 'transcribing'
-                  ? 'Transcribing recorded audio with Gemini...'
-                  : 'Processing civic report...')}
+                  : 'Coordinating with Bengaluru City Grid...')}
             </p>
           </div>
         )}
 
-        {/* Confirmed Voice Reply Display */}
-        {responseMessage && (
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-cyan-950/40 to-slate-950/90 border border-cyan-500/40 text-sm mb-6 animate-fade-in shadow-xl">
-            <div className="flex items-center justify-between text-xs text-cyan-300 font-bold mb-2">
-              <span className="flex items-center gap-1.5">
-                <Volume2 className="w-4 h-4 text-cyan-400 animate-pulse" />
-                BharatPulse Confirmed Voice Response
-              </span>
-              {incidentId && (
-                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/40">
+        {/* Section 24 Structured Summary Card ("I understood this as:") */}
+        {transcript && status !== 'listening' && !incidentId && (
+          <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-300 text-left mb-6 animate-fade-in">
+            <div className="flex items-center gap-2 text-xs font-mono text-emerald-800 mb-2 font-bold uppercase">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>SETU: "I understood this as:"</span>
+            </div>
+            <p className="text-sm text-slate-800 font-medium">"{transcript}"</p>
+            <div className="mt-3 pt-3 border-t border-emerald-200 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={resetVoice}
+                className="text-xs text-slate-600 hover:text-slate-900 font-medium"
+              >
+                [Correct / Re-record]
+              </button>
+              <button
+                type="button"
+                onClick={() => stopListeningAndProcess(transcript, uploadedImage || undefined)}
+                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm"
+              >
+                <span>[Send Report]</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmed Incident Action Badge */}
+        {incidentId && (
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-sm mb-6 animate-fade-in shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-mono font-bold text-xs border border-amber-300">
                   {incidentId}
                 </span>
-              )}
-            </div>
-            <p className="text-slate-100 font-semibold text-base leading-relaxed">
-              "{responseMessage}"
-            </p>
-            {incidentId && (
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-xs text-slate-400">
-                  Incident registered on Bengaluru Municipal Grid
+                <span className="text-xs text-emerald-900 font-bold">
+                  REPORT RECEIVED · MUNICIPAL DISPATCH ACTIVE
                 </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onIncidentCreated?.(incidentId);
-                    onOpenDashboard?.();
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 text-xs font-bold flex items-center gap-1 hover:brightness-110 shadow-md shadow-cyan-500/20"
-                >
-                  <span>Track in Command Center</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
               </div>
-            )}
+              <p className="text-xs text-slate-600 mt-1">
+                Field squad assigned. Traffic-aware route computed.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onIncidentCreated?.(incidentId);
+                onOpenDashboard?.();
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center gap-1 hover:bg-indigo-700 shadow-sm shrink-0"
+            >
+              <span>Track in Command Center</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
-        {/* Input Bar with Mic / Type / Image Upload */}
-        <form onSubmit={handleSubmitText} className="flex items-center gap-2 mb-6">
-          <label
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer border border-slate-700 flex items-center justify-center transition-colors"
-            title="Upload Incident Photo"
-          >
-            <Camera className="w-5 h-5 text-slate-300" />
+        {/* Input Bar with Camera & Typed Input */}
+        {showTypeInput && (
+          <form onSubmit={handleSubmitText} className="flex items-center gap-2 mb-6 animate-fade-in">
+            <label
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer border border-slate-200 flex items-center justify-center transition-colors"
+              title="Upload Incident Photo"
+            >
+              <Camera className="w-5 h-5 text-slate-600" />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+            </label>
+
             <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
+              type="text"
+              value={typedMessage}
+              onChange={(e) => setTypedMessage(e.target.value)}
+              placeholder="Or describe the civic problem here..."
+              className="flex-1 bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
-          </label>
 
-          <input
-            type="text"
-            value={typedMessage}
-            onChange={(e) => setTypedMessage(e.target.value)}
-            placeholder={
-              status === 'listening'
-                ? 'Listening to microphone...'
-                : 'Or type the civic hazard / emergency here...'
-            }
-            className="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/70"
-          />
-
-          <button
-            type="submit"
-            disabled={status === 'thinking' || status === 'acting' || status === 'transcribing'}
-            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 disabled:opacity-50"
-          >
-            <Send className="w-4 h-4" />
-            <span className="hidden sm:inline">Send</span>
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={status === 'thinking' || status === 'coordinating'}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+              <span>Send</span>
+            </button>
+          </form>
+        )}
 
         {/* Uploaded Image Preview Tag */}
         {uploadedImage && (
-          <div className="mb-4 flex items-center gap-3 p-2 bg-slate-950 rounded-xl border border-slate-800 max-w-sm">
+          <div className="mb-4 flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-200 max-w-sm text-left">
             <img
               src={uploadedImage}
               alt="Hazard upload"
               className="w-12 h-12 object-cover rounded-lg"
             />
             <div className="flex-1 text-xs">
-              <span className="font-semibold text-slate-200">Incident Photo Attached</span>
+              <span className="font-semibold text-slate-800">Incident Photo Attached</span>
               <p className="text-[10px] text-slate-500 truncate">Multimodal Gemini evidence</p>
             </div>
             <button
               type="button"
               onClick={() => setUploadedImage(null)}
-              className="text-xs text-rose-400 hover:underline px-2"
+              className="text-xs text-rose-600 hover:underline px-2 font-medium"
             >
               Remove
             </button>
           </div>
         )}
 
-        {/* Quick Sample Prompts Section */}
-        <div className="pt-4 border-t border-slate-800/80">
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Instant One-Click Voice & Report Presets:
+        {/* Quick Presets Section */}
+        <div className="pt-4 border-t border-slate-200 text-left">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+              Quick Voice Presets:
             </span>
-            <span className="text-[10px] text-slate-500">
-              Click to simulate voice input directly
-            </span>
+            <span className="text-[10px] text-slate-400 font-mono">Click to test instant intake</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {samplePrompts.map((p, idx) => (
@@ -317,19 +388,20 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
                 key={idx}
                 type="button"
                 onClick={() => {
+                  soundFx.playSignalReceived();
                   simulateVoiceInput(p.text, p.lang, uploadedImage || undefined);
                 }}
-                className="text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 hover:border-amber-500/40 text-xs transition-all group"
+                className="text-left p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs transition-all group"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-200 group-hover:text-amber-300">
+                  <span className="font-semibold text-slate-800 group-hover:text-indigo-700">
                     {p.title}
                   </span>
-                  <span className="text-[10px] font-mono text-slate-500 uppercase px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase px-1.5 py-0.2 rounded bg-white border border-slate-200">
                     {p.lang}
                   </span>
                 </div>
-                <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                <div className="text-[11px] text-slate-600 line-clamp-1 mt-0.5">
                   "{p.text}"
                 </div>
               </button>

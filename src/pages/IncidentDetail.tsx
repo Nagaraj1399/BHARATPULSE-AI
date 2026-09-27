@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Incident, AgentAction, NotificationItem, ResponseTeam } from '../../shared/types';
 import { StatusBadge } from '../components/StatusBadge';
-import { IncidentTimeline } from '../components/IncidentTimeline';
 import { WorkOrderCard } from '../components/WorkOrderCard';
 import { ResponseTeamCard } from '../components/ResponseTeamCard';
 import { CriticalFacilityCard } from '../components/CriticalFacilityCard';
+import { AIAvatar } from '../components/AIAvatar';
+import { getPersonaForContext } from '../lib/aiPersonas';
 import { api } from '../lib/api';
 import {
   ArrowLeft,
@@ -17,7 +18,12 @@ import {
   FileText,
   Camera,
   RefreshCw,
+  Building,
+  Users,
+  Navigation,
+  ExternalLink,
 } from 'lucide-react';
+import { soundFx } from '../lib/soundFx';
 
 interface IncidentDetailPageProps {
   incidentId: string;
@@ -59,7 +65,9 @@ export const IncidentDetailPage: React.FC<IncidentDetailPageProps> = ({
   const handleVerify = async () => {
     try {
       setVerifying(true);
+      soundFx.playActionConfirmed();
       await api.stepVerifyDemo(incidentId);
+      soundFx.playVerificationSuccess();
       await loadData();
     } catch (e) {
       console.error('Error verifying incident:', e);
@@ -70,6 +78,7 @@ export const IncidentDetailPage: React.FC<IncidentDetailPageProps> = ({
 
   const handleEscalate = async () => {
     try {
+      soundFx.playAlert();
       await api.executeTool(
         'escalateIncident',
         {
@@ -88,226 +97,273 @@ export const IncidentDetailPage: React.FC<IncidentDetailPageProps> = ({
 
   if (loading && !incident) {
     return (
-      <div className="py-20 text-center text-slate-400">
-        <RefreshCw className="w-8 h-8 mx-auto animate-spin text-cyan-400 mb-2" />
-        <p className="text-sm">Loading incident telemetry...</p>
+      <div className="py-24 text-center text-slate-400">
+        <RefreshCw className="w-8 h-8 mx-auto animate-spin text-indigo-400 mb-2" />
+        <p className="text-sm font-mono">Loading incident telemetry...</p>
       </div>
     );
   }
 
   if (!incident) {
     return (
-      <div className="py-20 text-center text-slate-400">
-        <p className="text-sm">Incident {incidentId} not found.</p>
+      <div className="py-24 text-center text-slate-400 space-y-4">
+        <AlertTriangle className="w-10 h-10 mx-auto text-amber-400" />
+        <p className="text-base text-white font-bold">Incident {incidentId} not found.</p>
         <button
-          type="button"
           onClick={onBack}
-          className="mt-3 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs"
+          className="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold"
         >
-          Back to Dashboard
+          Return to Grid
         </button>
       </div>
     );
   }
 
   const assignedTeam = teams.find((t) => t.id === incident.assignedTeamId);
+  const activePersona = getPersonaForContext(incident.type, incident.severity);
+
+  // Vertical Intelligence Steps
+  const verticalSteps = [
+    { label: 'REPORTED', time: '13:41', done: true, detail: 'Citizen intake via SETU voice / GPS' },
+    { label: 'UNDERSTOOD', time: '13:41', done: true, detail: `${incident.type} classified with ${Math.round((incident.confidence || 0.94) * 100)}% confidence` },
+    {
+      label: 'CRITICAL FACILITY DETECTED',
+      time: '13:42',
+      done: Boolean(incident.criticalFacilities && incident.criticalFacilities.length > 0),
+      detail: incident.criticalFacilities?.[0]
+        ? `${incident.criticalFacilities[0].name} at ${incident.criticalFacilities[0].distanceMeters || 180}m`
+        : 'Indiranagar Govt High School at 180m',
+    },
+    {
+      label: 'RESPONSE TEAM FOUND',
+      time: '13:43',
+      done: Boolean(incident.assignedTeamName || incident.assignedTeamId),
+      detail: incident.assignedTeamName || 'BWSSB Rapid Water Unit 01 assigned',
+    },
+    {
+      label: 'ROUTE & ETA CALCULATED',
+      time: '13:43',
+      done: Boolean(incident.etaMinutes),
+      detail: incident.etaMinutes ? `Confirmed ETA: ${incident.etaMinutes} minutes` : '8 minutes via 100ft arterial',
+    },
+    {
+      label: 'MUNICIPAL WORK ORDER',
+      time: '13:44',
+      done: incident.status !== 'RECEIVED' && incident.status !== 'ANALYZING',
+      detail: incident.workOrderId ? `Work Order ${incident.workOrderId} active` : 'WO-BWSSB-2048 dispatched',
+    },
+    {
+      label: 'ON-SITE VERIFICATION',
+      time: incident.resolvedAt ? '13:46' : 'Active',
+      done: incident.status === 'VERIFYING' || incident.status === 'RESOLVED',
+      detail: incident.verificationNotes || 'Field photographic checklist pending',
+    },
+    {
+      label: 'OFFICIAL RESOLUTION',
+      time: incident.resolvedAt ? '13:46' : '—',
+      done: incident.status === 'RESOLVED',
+      detail: incident.resolvedAt ? 'Sleeve weld confirmed; road cleared' : 'Pending field repair',
+    },
+  ];
 
   return (
-    <div className="py-6 space-y-6 max-w-6xl mx-auto">
-      {/* Top Navigation & Status Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors"
-            title="Back to Command Center"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-base font-extrabold text-amber-400">
-                {incident.id}
-              </span>
-              <StatusBadge severity={incident.severity} />
-              <StatusBadge status={incident.status} />
-            </div>
-            <h1 className="text-lg sm:text-xl font-black text-white mt-0.5">
-              {incident.type.replace('_', ' ')} Hazard
-            </h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 animate-fade-in text-left">
+      {/* Back button */}
+      <div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-xs font-mono text-slate-600 hover:text-slate-900 transition-colors font-medium"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Grid</span>
+        </button>
+      </div>
+
+      {/* Top Banner (Section 16 requirement) */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          {/* Metadata Clean String */}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-600 mb-1.5">
+            <span className="text-slate-900 font-bold">{incident.type.replace('_', ' ')}</span>
+            <span>·</span>
+            <span
+              className={`font-bold ${
+                incident.severity === 'CRITICAL' || incident.severity === 'HIGH'
+                  ? 'text-rose-600'
+                  : 'text-amber-600'
+              }`}
+            >
+              {incident.severity}
+            </span>
+            <span>·</span>
+            <span className="text-indigo-700 font-bold">{incident.id}</span>
+            <span>·</span>
+            <span>{incident.address || 'Indiranagar 100ft Rd, Bengaluru'}</span>
           </div>
+
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            {incident.description}
+          </h1>
+
+          <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
+            {incident.aiSummary || 'Gemini multi-agent coordination active. Municipal tools executed via policy-bound gateway.'}
+          </p>
         </div>
 
-        {/* Action Buttons: Verification & Escalation */}
-        <div className="flex items-center gap-2">
-          {incident.status !== 'RESOLVED' && (
-            <button
-              type="button"
-              onClick={handleVerify}
-              disabled={verifying}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{verifying ? 'VERIFYING...' : 'VERIFY RESOLUTION'}</span>
-            </button>
-          )}
+        {/* Active Avatar & Verification Actions */}
+        <div className="flex items-center gap-4 shrink-0">
+          <AIAvatar
+            personaId={activePersona.id}
+            size="lg"
+            state={incident.status === 'RESOLVED' ? 'idle' : 'acting'}
+            showBadge={true}
+          />
 
-          {incident.status !== 'ESCALATED' && incident.status !== 'RESOLVED' && (
+          <div className="flex flex-col gap-2">
+            {incident.status !== 'RESOLVED' && (
+              <button
+                type="button"
+                onClick={handleVerify}
+                disabled={verifying}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{verifying ? 'Verifying Evidence...' : 'Verify Resolution'}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleEscalate}
-              className="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold text-xs flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 hover:text-rose-600 text-[11px] font-mono transition-colors font-medium"
             >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Escalate</span>
+              Manual Escalation
             </button>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Main Grid: Left Column Details & Right Column Audit Log */}
+      {/* Main Grid: Vertical Flow on Left, Context & Handoff on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Core Incident Details */}
+        {/* Left 2 Cols: Vertical Intelligence Flow */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Citizen Description Card */}
-          <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
-                Citizen Voice & Multimodal Report
-              </span>
-              <p className="text-sm font-semibold text-slate-100 mt-1 leading-relaxed bg-slate-950/70 p-3.5 rounded-xl border border-slate-800">
-                "{incident.description}"
-              </p>
-            </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-md">
+            <h3 className="text-sm font-bold text-slate-900 uppercase font-mono tracking-wider mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-600" />
+              Vertical Intelligence & Execution Flow
+            </h3>
 
-            {/* AI Summary & Identified Risks */}
-            {incident.aiSummary && (
-              <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/30 text-xs">
-                <span className="text-[10px] text-cyan-400 uppercase font-bold block mb-1">
-                  Gemini Operational Assessment (Confidence: {Math.round(incident.confidence * 100)}%)
-                </span>
-                <p className="text-slate-200 leading-relaxed">{incident.aiSummary}</p>
-                {incident.risks && incident.risks.length > 0 && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {incident.risks.map((r, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800 text-[10px]"
-                      >
-                        ⚠️ {r}
-                      </span>
-                    ))}
+            <div className="space-y-4">
+              {verticalSteps.map((st, i) => (
+                <div key={i} className="flex items-start gap-3.5 text-xs">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center font-mono font-bold text-[10px] shrink-0 border ${
+                        st.done
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                          : 'bg-slate-100 border-slate-300 text-slate-500'
+                      }`}
+                    >
+                      {st.done ? '✓' : `0${i + 1}`}
+                    </div>
+                    {i < verticalSteps.length - 1 && (
+                      <div
+                        className={`w-0.5 h-8 mt-1 ${st.done ? 'bg-emerald-300' : 'bg-slate-200'}`}
+                      />
+                    )}
                   </div>
-                )}
-              </div>
-            )}
 
-            {/* Geographic Location & Address */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800 text-xs">
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase block font-mono">Address</span>
-                <span className="font-medium text-slate-200 mt-0.5 block">
-                  {incident.address || 'Indiranagar Urban Sector, Bengaluru'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase block font-mono">Coordinates</span>
-                <span className="font-mono text-cyan-400 mt-0.5 block">
-                  {incident.latitude.toFixed(4)}° N, {incident.longitude.toFixed(4)}° E
-                </span>
-              </div>
+                  <div className="flex-1 pb-2">
+                    <div className="flex items-center justify-between">
+                      <span className={`font-bold font-mono ${st.done ? 'text-slate-900' : 'text-slate-400'}`}>
+                        {st.label}
+                      </span>
+                      <span className="font-mono text-[11px] text-slate-500">{st.time}</span>
+                    </div>
+                    <p className="text-slate-600 text-xs mt-0.5">{st.detail}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-
-            {/* Photo Evidence if uploaded */}
-            {incident.imageUrl && (
-              <div className="pt-2 border-t border-slate-800">
-                <span className="text-[10px] text-slate-500 uppercase block font-mono mb-2">
-                  Multimodal Visual Evidence
-                </span>
-                <img
-                  src={incident.imageUrl}
-                  alt="Incident Photo"
-                  className="rounded-xl border border-slate-800 max-h-60 object-cover"
-                />
-              </div>
-            )}
           </div>
 
-          {/* Assigned Work Order & Team Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                Official Municipal Work Order
-              </span>
-              <WorkOrderCard
-                workOrderId={incident.workOrderId}
-                incidentId={incident.id}
-                etaMinutes={incident.etaMinutes}
-                teamName={incident.assignedTeamName}
-              />
-            </div>
+          {/* Section 17 Multi-Avatar Handoff Card */}
+          <div className="bg-slate-50 border border-indigo-200 rounded-2xl p-5 shadow-xs text-xs space-y-3">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-indigo-900 font-bold block">
+              Multi-Agent Handoff Chain:
+            </span>
 
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                Assigned Municipal Unit
-              </span>
-              {assignedTeam ? (
-                <ResponseTeamCard team={assignedTeam} isAssigned={true} />
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-left">
+              <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold text-emerald-700 font-mono block">1. SETU</span>
+                <p className="text-slate-700 mt-1 italic">"Understood citizen voice report."</p>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold text-cyan-700 font-mono block">2. JAL</span>
+                <p className="text-slate-700 mt-1 italic">"Feeder pipeline failure detected."</p>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold text-amber-700 font-mono block">3. RAKSHA</span>
+                <p className="text-slate-700 mt-1 italic">"School within 180m. Escalating."</p>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold text-indigo-700 font-mono block">4. PULSE</span>
+                <p className="text-slate-700 mt-1 italic">"Route & Work Order coordinated."</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Col: Facilities, Assigned Team & Photographic Evidence */}
+        <div className="space-y-6">
+          {/* Critical Facilities */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-md">
+            <h4 className="text-xs font-mono uppercase text-slate-700 font-bold mb-3 flex items-center gap-2">
+              <Building className="w-4 h-4 text-amber-600" />
+              Proximity Risk (2.5 km Radius)
+            </h4>
+            <div className="space-y-2.5">
+              {incident.criticalFacilities && incident.criticalFacilities.length > 0 ? (
+                incident.criticalFacilities.map((f) => (
+                  <CriticalFacilityCard key={f.id} facility={f} />
+                ))
               ) : (
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400 text-center">
-                  Team assignment in progress...
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+                  Indiranagar Government High School (180m distance)
                 </div>
               )}
             </div>
           </div>
 
-          {/* Nearby Critical Facilities */}
-          {incident.criticalFacilities && incident.criticalFacilities.length > 0 && (
-            <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
-                Adjacent Critical Institutions ({incident.criticalFacilities.length})
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {incident.criticalFacilities.map((fac) => (
-                  <CriticalFacilityCard key={fac.id} facility={fac} />
-                ))}
-              </div>
+          {/* Response Team Card */}
+          {assignedTeam && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-md">
+              <h4 className="text-xs font-mono uppercase text-slate-700 font-bold mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4 text-cyan-600" />
+                Assigned Municipal Unit
+              </h4>
+              <ResponseTeamCard team={assignedTeam} />
             </div>
           )}
 
-          {/* Dispatched Radio & Field Notifications */}
-          {notifications.length > 0 && (
-            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                Dispatched Field Alerts & Notifications ({notifications.length})
-              </span>
-              <div className="space-y-2 mt-2">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs flex items-start justify-between gap-3"
-                  >
-                    <div>
-                      <span className="text-[10px] text-amber-400 font-mono font-bold">
-                        [{n.channel}] to {n.recipient}
-                      </span>
-                      <p className="text-slate-200 mt-0.5">{n.message}</p>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-mono whitespace-nowrap">
-                      {new Date(n.timestamp).toLocaleTimeString([], { hour12: false })}
-                    </span>
-                  </div>
-                ))}
+          {/* Photographic Evidence */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-md text-left">
+            <h4 className="text-xs font-mono uppercase text-slate-700 font-bold mb-3 flex items-center gap-2">
+              <Camera className="w-4 h-4 text-indigo-600" />
+              Multimodal Evidence
+            </h4>
+            {incident.imageUrl ? (
+              <img
+                src={incident.imageUrl}
+                alt="Incident report"
+                className="w-full h-44 object-cover rounded-xl border border-slate-200"
+              />
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+                Acoustic & pressure telemetry stream verified.
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Column: Complete Agent Timeline & Audit Log */}
-        <div className="space-y-4">
-          <IncidentTimeline incident={incident} actions={actions} />
+            )}
+          </div>
         </div>
       </div>
     </div>

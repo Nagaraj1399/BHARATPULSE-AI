@@ -32,13 +32,22 @@ incidentsRouter.get('/:id', (req: Request, res: Response) => {
 incidentsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { description, latitude, longitude, language, imageUrl, address } = req.body;
-    if (!description) {
+    if (!description || typeof description !== 'string' || !description.trim()) {
       return res.status(400).json({ error: 'Description is required' });
     }
 
+    const hasLat = typeof latitude === 'number' && !isNaN(latitude);
+    const hasLng = typeof longitude === 'number' && !isNaN(longitude);
+
+    if (!hasLat && !hasLng && !address) {
+      return res.status(400).json({
+        error: 'Incident location (coordinates or street/landmark address) is required to dispatch municipal response teams.',
+      });
+    }
+
     const id = `BP-${Math.floor(2000 + Math.random() * 900)}`;
-    const lat = typeof latitude === 'number' ? latitude : 12.9716;
-    const lng = typeof longitude === 'number' ? longitude : 77.5946;
+    const lat = hasLat ? latitude : 12.9716;
+    const lng = hasLng ? longitude : 77.5946;
 
     const incident = incidentsDb.create({
       id,
